@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eco-Town Factory Monitor</title>
+
+  <style>
+    /* CORE THEME & LAYOUT */
+    body { margin: 0; display: flex; width: 100vw; height: 100vh; font-family: "Segoe UI", sans-serif; background: #ffffff; color: #2d3436; overflow: hidden; }
+    nav { width: 260px; height: 100vh; background: #ffffff; border-right: 1px solid #f0f0f0; display: flex; flex-direction: column; padding-top: 40px; flex-shrink: 0; }
+    .brand { padding: 0 35px 35px 35px; font-size: 18px; font-weight: 800; color: #1e3c72; letter-spacing: 1px; text-transform: uppercase; }
+    nav button { background: none; border: none; text-align: left; padding: 18px 35px; font-size: 15px; font-weight: 600; color: #b2bec3; cursor: pointer; transition: 0.3s; border-left: 4px solid transparent; }
+    nav button:hover { background: #fcfcfc; color: #1e3c72; }
+    nav button.active-btn { background: #f4f7fe; color: #1e3c72; border-left: 4px solid #1e3c72; }
+    .main-content { flex-grow: 1; padding: 50px; overflow-y: auto; height: 100vh; box-sizing: border-box; }
+    .section { display: none; }
+    .section.active { display: block; }
+    h2 { margin-top: 0; font-size: 26px; color: #1e3c72; margin-bottom: 25px; }
+
+    /* MONITOR STYLES */
+    .monitor-container { position: relative; background: #0f172a; height: 350px; border-radius: 16px; overflow: hidden; margin-bottom: 30px; border: 4px solid #334155; }
+    .factory-floor { position: absolute; bottom: 0; left: 0; width: 70%; height: 80px; background: #1e293b; border-top: 4px solid #475569; z-index: 2; }
+    .chimney { position: absolute; bottom: 80px; width: 35px; height: 100px; background: #475569; z-index: 1; }
+    .smoke { position: absolute; width: 25px; height: 25px; background: rgba(200, 200, 200, 0.4); border-radius: 50%; animation: smokeRise 2.5s infinite ease-out; opacity: 0; }
+    .is-polluted .smoke { background: rgba(214, 48, 49, 0.9); animation-duration: 0.6s; }
+    @keyframes smokeRise { 0% { transform: translateY(0) scale(1); opacity: 0.6; } 100% { transform: translateY(-120px) scale(2.5); opacity: 0; } }
+    .status-badge { position: absolute; top: 20px; left: 20px; padding: 8px 16px; border-radius: 20px; font-weight: bold; font-size: 12px; background: #22c55e; color: white; z-index: 10; }
+    .status-badge.danger { background: #ef4444; animation: blink 1s infinite; }
+    .status-badge.neutralizing { background: #e67e22; }
+
+    /* RIVER SQUARE GRID STYLES */
+    .river-godavari { 
+        position: absolute; right: 0; top: 0; width: 30%; height: 100%; 
+        display: grid; 
+        grid-template-columns: repeat(auto-fill, minmax(18px, 1fr)); 
+        grid-auto-rows: minmax(18px, 1fr); 
+        gap: 2px; 
+        background: #0f172a; padding: 5px; box-sizing: border-box; z-index: 1; 
+        overflow: hidden;
+    }
+    .river-box { 
+        background: #2563eb; 
+        transition: background 0.4s ease; 
+        border-radius: 2px; 
+        aspect-ratio: 1 / 1; 
+    }
+    .river-box.polluted { background: #ef4444; box-shadow: 0 0 8px #ef4444; }
+
+    /* EMERGENCY PANEL */
+    .emergency-panel { border: 3px solid #d63031; background: #fffcfc; padding: 25px; border-radius: 12px; margin-top: 20px; animation: slideUp 0.5s ease-out; }
+    .emergency-panel.neutral-mode { border-color: #e67e22; background: #fffaf5; }
+    @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+    /* CARDS & UI */
+    .card { background: #ffffff; border: 1px solid #f0f0f0; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.02); margin-bottom: 20px; transition: 0.3s; }
+    .inventory-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; }
+    .quantity { font-size: 24px; font-weight: 700; color: #2d3436; margin-bottom: 12px; }
+    
+    .highlight-agent { 
+      border: 3px solid #27ae60 !important; 
+      box-shadow: 0 0 25px rgba(39, 174, 96, 0.8) !important; 
+      animation: pulseHighlight 1.2s infinite; 
+      cursor: pointer;
+      background: #f0fff4 !important; 
+    }
+    @keyframes pulseHighlight {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+
+    .action-btn { background: #1e3c72; color: white; border: none; padding: 12px 20px; border-radius: 6px; cursor: pointer; font-weight: 600; margin-top: 10px; margin-right: 5px; }
+    .save-btn { background: #27ae60; }
+    .timer-text { font-size: 32px; font-weight: 800; color: #d63031; font-family: monospace; }
+    .neutral-timer { color: #e67e22 !important; }
+    
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; padding: 12px; background: #f8f9fa; border-bottom: 2px solid #eee; font-size: 13px; text-transform: uppercase; color: #636e72; }
+    td { padding: 15px 12px; border-bottom: 1px solid #eee; font-size: 14px; }
+    .log-alert { color: #d63031; font-weight: bold; }
+    .log-success { color: #27ae60; font-weight: bold; }
+
+    select, input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <div class="brand">Eco-Town AI</div>
+    <button id="btn-monitor" class="active-btn" onclick="showSection('monitor')">Live Monitor</button>
+    <button id="btn-inventory" onclick="showSection('inventory')">Inventory</button>
+    <button id="btn-work" onclick="showSection('work')">Daily Work</button>
+    <button id="btn-predictor" onclick="showSection('predictor')">Predictor</button>
+  </nav>
+
+  <div class="main-content">
+    
+    <div id="monitor" class="section active">
+      <h2>📡 Plant Operational View</h2>
+      <div class="monitor-container" id="monitor-box">
+          <div class="status-badge" id="live-status">SYSTEM STABLE</div>
+          <div class="chimney" style="left: 10%;"><div class="smoke"></div></div>
+          <div class="chimney" style="left: 20%; height: 120px;"><div class="smoke"></div></div>
+          <div class="chimney" style="left: 30%; height: 90px;"><div class="smoke"></div></div>
+          <div class="factory-floor"></div>
+          <div class="river-godavari" id="river"></div>
+      </div>
+      
+      <div id="emergency-ui" style="display:none;">
+        <div class="emergency-panel" id="panel-color">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h3 id="crisis-title" style="color:#d63031; margin:0;">🚨 CRITICAL EMISSION DETECTED</h3>
+                    <p id="crisis-details" style="margin:5px 0;"></p>
+                </div>
+                <div class="timer-text" id="countdown-timer">02:00</div>
+            </div>
+            <hr style="border:0; border-top:1px solid #eee; margin:15px 0;">
+            <div id="crisis-action-area">
+                <p><strong>Emergency Protocol:</strong> Neutralizer required. Go to Inventory to apply the solution.</p>
+                <button class="action-btn" style="background:#e67e22;" onclick="goToInventoryCrisis()">Go to Inventory & Fix</button>
+            </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="inventory" class="section">
+      <h2 id="inv-title">🧪 Chemical Inventory</h2>
+      <div id="crisis-instruction" style="display:none; background:#fff5f5; border:1px solid #feb2b2; padding:15px; border-radius:8px; color:#d63031; font-weight:bold; margin-bottom:15px;">
+        ⚠️ SELECT THE FLASHING CHEMICAL TO NEUTRALIZE THE EMISSION!
+      </div>
+      <div class="inventory-grid" id="inventory-display"></div>
+    </div>
+
+    <div id="work" class="section">
+      <h2>📊 Daily Work & Production Log</h2>
+      <div class="card">
+        <table id="log-table">
+          <thead>
+            <tr>
+                <th>Time</th>
+                <th>Activity</th>
+                <th>Details</th>
+                <th>Neutralizer Used</th>
+                <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="work-log-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="predictor" class="section">
+      <h2>🔮 Production Predictor</h2>
+      <div class="card">
+        <h3>Analyze Product Impact</h3>
+        <select id="product-select" onchange="updateRecipeUI()">
+          <option value="">-- Select Product --</option>
+          <option value="Steel Billet">Steel Billet</option>
+          <option value="Pig Iron">Pig Iron</option>
+          <option value="Purified Steel">Purified Steel</option>
+          <option value="Galvanized Sheet">Galvanized Sheet</option>
+          <option value="Wire Rods">Wire Rods</option>
+          <option value="Alloy Bars">Alloy Bars</option>
+          <option value="Casting Mold">Casting Mold</option>
+        </select>
+        <div id="recipe-input-area" style="display:none;">
+          <p id="recipe-text" style="color:#1e3c72; font-weight:bold;"></p>
+          <input type="number" id="chem-input" placeholder="Enter amount of raw material">
+          <button class="action-btn" onclick="calculateProduction()">Calculate Impact</button>
+        </div>
+        <div id="results-area" style="display:none; margin-top:20px; border-top:1px solid #eee; padding-top:20px;">
+          <p>Estimated Emission Level: <b id="poll-yield" style="color:red;">0</b> units</p>
+          <p>Fixed Safety Limit: <b id="neut-limit">0</b> units</p>
+          <div id="predictor-actions"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const inventory = { "Iron Ore": 1500, "Coal": 800, "Sulfuric Acid": 600, "Limestone": 1000, "Sodium Hydroxide": 500, "Ammonia": 400 };
+
+    const recipes = {
+      "Steel Billet":    { main: "Iron Ore", ratio: 2, pRatio: 0.8, pollutant: "SO2 Gas", agent: "Limestone", limit: 50 },
+      "Pig Iron":        { main: "Iron Ore", ratio: 1.5, pRatio: 1.2, pollutant: "CO Gas", agent: "Limestone", limit: 40 },
+      "Purified Steel":  { main: "Coal", ratio: 1.2, pRatio: 0.9, pollutant: "NOx Fumes", agent: "Ammonia", limit: 30 },
+      "Galvanized Sheet":{ main: "Sulfuric Acid", ratio: 5, pRatio: 1.5, pollutant: "Acid Residue", agent: "Sodium Hydroxide", limit: 60 },
+      "Wire Rods":       { main: "Iron Ore", ratio: 1.8, pRatio: 1.1, pollutant: "Particulate Matter", agent: "Limestone", limit: 45 },
+      "Alloy Bars":      { main: "Coal", ratio: 2.2, pRatio: 0.7, pollutant: "Carbon Dust", agent: "Ammonia", limit: 35 },
+      "Casting Mold":    { main: "Sulfuric Acid", ratio: 3.5, pRatio: 1.3, pollutant: "Chemical Vapor", agent: "Sodium Hydroxide", limit: 55 }
+    };
+
+    let currentSession = null;
+    let crisisTimer = null;
+    let isEmergency = false;
+    let isNeutralizing = false;
+
+    // INITIALIZE RIVER BOXES
+    const riverContainer = document.getElementById('river');
+    const TOTAL_BOXES = 300; 
+    for(let i=0; i<TOTAL_BOXES; i++) {
+        const box = document.createElement('div');
+        box.className = 'river-box';
+        riverContainer.appendChild(box);
+    }
+
+    function renderInventory() {
+      const container = document.getElementById('inventory-display');
+      container.innerHTML = '';
+      for (let item in inventory) {
+        const isTarget = isEmergency && item === currentSession.agent && !isNeutralizing;
+        container.innerHTML += `
+          <div class="card ${isTarget ? 'highlight-agent' : ''}" onclick="${isTarget ? 'attemptNeutralize()' : ''}">
+            <h3>${item}</h3>
+            <div class="quantity">${inventory[item]}</div>
+            ${isTarget ? '<small style="color:#d63031"><b>⚠️ CLICK TO NEUTRALIZE</b></small>' : ''}
+          </div>`;
+      }
+    }
+
+    function startCrisis() {
+      isEmergency = true;
+      isNeutralizing = false;
+      showSection('monitor');
+      
+      document.getElementById('monitor-box').classList.add('is-polluted');
+      document.getElementById('live-status').innerText = "ALERT: POLLUTION LEAK";
+      document.getElementById('live-status').className = "status-badge danger";
+      document.getElementById('emergency-ui').style.display = 'block';
+      document.getElementById('crisis-title').innerText = "🚨 CRITICAL EMISSION DETECTED";
+      document.getElementById('crisis-title').style.color = "#d63031";
+      document.getElementById('countdown-timer').classList.remove('neutral-timer');
+      document.getElementById('panel-color').classList.remove('neutral-mode');
+      document.getElementById('crisis-action-area').style.display = "block";
+      document.getElementById('crisis-details').innerText = `${currentSession.pollutant} detected at ${currentSession.pollProduced} units.`;
+
+      // CONFIGURATION: 120 Seconds, one box at a time
+      const totalTimeMs = 120000;
+      const boxSpeed = totalTimeMs / TOTAL_BOXES; // 400ms per box
+      let timeLeft = 120;
+      let boxesTurnedRed = 0;
+
+      clearInterval(crisisTimer);
+
+      // Sub-interval for smooth, one-by-one box conversion
+      const riverPollutionInterval = setInterval(() => {
+        if (!isEmergency || isNeutralizing || boxesTurnedRed >= TOTAL_BOXES) {
+          clearInterval(riverPollutionInterval);
+          return;
+        }
+        const boxes = document.querySelectorAll('.river-box');
+        if (boxes[boxesTurnedRed]) {
+          boxes[boxesTurnedRed].classList.add('polluted');
+          boxesTurnedRed++;
+        }
+      }, boxSpeed);
+
+      // Main UI Timer interval
+      crisisTimer = setInterval(() => {
+        timeLeft--;
+        updateTimerUI(timeLeft);
+        if (timeLeft <= 0) {
+          clearInterval(crisisTimer);
+          clearInterval(riverPollutionInterval);
+          gameOver();
+        }
+      }, 1000);
+    }
+
+    function attemptNeutralize() {
+      isNeutralizing = true;
+      clearInterval(crisisTimer);
+      
+      showSection('monitor');
+      document.getElementById('crisis-title').innerText = "🛡️ NEUTRALIZING...";
+      document.getElementById('crisis-title').style.color = "#e67e22";
+      document.getElementById('countdown-timer').classList.add('neutral-timer');
+      document.getElementById('panel-color').classList.add('neutral-mode');
+      document.getElementById('live-status').innerText = "STATUS: NEUTRALIZING";
+      document.getElementById('live-status').className = "status-badge neutralizing";
+      document.getElementById('crisis-action-area').style.display = "none";
+      document.getElementById('crisis-instruction').style.display = 'none';
+
+      let neutralTime = 60;
+      const boxes = document.querySelectorAll('.river-box');
+      const startRedCount = document.querySelectorAll('.river-box.polluted').length;
+
+      crisisTimer = setInterval(() => {
+        neutralTime--;
+        updateTimerUI(neutralTime);
+
+        const progressRemaining = neutralTime / 60;
+        const currentRedTarget = Math.floor(progressRemaining * startRedCount);
+        
+        boxes.forEach((box, index) => {
+            if (index >= currentRedTarget) box.classList.remove('polluted');
+        });
+
+        if (neutralTime <= 0) {
+          clearInterval(crisisTimer);
+          finalizeNeutralization();
+        }
+      }, 1000);
+    }
+
+    function finalizeNeutralization() {
+      isEmergency = false;
+      isNeutralizing = false;
+      
+      const amtUsed = currentSession.pollProduced;
+      inventory[currentSession.agent] = (inventory[currentSession.agent] - amtUsed).toFixed(1);
+      inventory[currentSession.main] -= currentSession.amount;
+
+      document.getElementById('monitor-box').classList.remove('is-polluted');
+      document.getElementById('live-status').innerText = "SYSTEM STABLE";
+      document.getElementById('live-status').className = "status-badge";
+      document.getElementById('emergency-ui').style.display = 'none';
+      
+      addLog("NEUTRALIZATION", `Stabilized ${currentSession.pollutant}`, `${amtUsed} units of ${currentSession.agent}`, "log-success");
+      renderInventory();
+      alert("Neutralization Complete! River is clean.");
+    }
+
+    function updateTimerUI(seconds) {
+      let m = Math.floor(seconds/60), s = seconds%60;
+      document.getElementById('countdown-timer').innerText = `${m}:${s < 10 ? '0'+s : s}`;
+    }
+
+    function gameOver() {
+        document.body.innerHTML = "<div style='background:#1a1a1a; color:red; height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center;'><h1>PLANT SHUTDOWN</h1><h2>River Godavari Contaminated</h2><button onclick='location.reload()' style='padding:10px 20px; cursor:pointer; background:#d63031; color:white; border:none; border-radius:5px;'>Restart System</button></div>";
+    }
+
+    function showSection(id) {
+      document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+      document.querySelectorAll('nav button').forEach(b => b.classList.remove('active-btn'));
+      const btn = document.getElementById('btn-' + id);
+      if(btn) btn.classList.add('active-btn');
+    }
+
+    function updateRecipeUI() {
+      const prod = document.getElementById('product-select').value;
+      if (!prod) { document.getElementById('recipe-input-area').style.display = 'none'; return; }
+      document.getElementById('recipe-input-area').style.display = 'block';
+      document.getElementById('recipe-text').innerText = `Requires: ${recipes[prod].main}`;
+      document.getElementById('results-area').style.display = 'none';
+    }
+
+    function calculateProduction() {
+      const prodName = document.getElementById('product-select').value;
+      const amount = parseFloat(document.getElementById('chem-input').value);
+      const recipe = recipes[prodName];
+      if (!amount || amount <= 0 || amount > inventory[recipe.main]) return alert("Check inventory stocks!");
+      const pollProduced = (amount * recipe.pRatio).toFixed(1);
+      currentSession = { ...recipe, amount, pollProduced, pollProducedOrig: pollProduced, prodName };
+      document.getElementById('results-area').style.display = 'block';
+      document.getElementById('poll-yield').innerText = pollProduced;
+      document.getElementById('neut-limit').innerText = recipe.limit;
+      const actions = document.getElementById('predictor-actions');
+      if (parseFloat(pollProduced) > recipe.limit) {
+        actions.innerHTML = `<b style="color:red">EMISSION ALERT!</b><br><button class="action-btn" style="background:#d63031" onclick="startCrisis()">START PRODUCTION (HIGH RISK)</button>`;
+      } else {
+        actions.innerHTML = `<button class="action-btn save-btn" onclick="saveData()">Execute Safe Production</button>`;
+      }
+    }
+
+    function goToInventoryCrisis() {
+      document.getElementById('crisis-instruction').style.display = 'block';
+      renderInventory();
+      showSection('inventory');
+    }
+
+    function saveData() {
+      inventory[currentSession.main] -= currentSession.amount;
+      renderInventory();
+      addLog("PRODUCTION", `Safe batch of ${currentSession.prodName}`, "N/A (Safe)", "log-success");
+      document.getElementById('results-area').style.display = 'none';
+      alert("Safe Production Completed!");
+    }
+
+    function addLog(activity, details, neutralizer, statusClass) {
+      const body = document.getElementById('work-log-body');
+      const time = new Date().toLocaleTimeString();
+      body.innerHTML = `<tr><td>${time}</td><td class="${statusClass}">${activity}</td><td>${details}</td><td><b>${neutralizer}</b></td><td><span class="${statusClass}">${statusClass === 'log-success' ? 'SUCCESS' : 'ALERT'}</span></td></tr>` + body.innerHTML;
+    }
+
+    renderInventory();
+  </script>
+</body>
+</html>
